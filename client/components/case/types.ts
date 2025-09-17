@@ -42,7 +42,7 @@ export interface CaseSheetTemplate {
   name: string;
   description?: string;
   fields: FieldDefinition[];
-  suggestions?: Partial<Record<FieldDefinition["id"], string[]>>;
+  suggestions?: Record<string, string[]>; // key: field id
 }
 
 export type ToolType = "select" | "pen" | "rect" | "arrow" | "text" | "erase";
