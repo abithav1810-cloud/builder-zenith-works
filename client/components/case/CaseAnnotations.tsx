@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState, useImperativeHandle } from "react";
 import { Annotation, ArrowAnnotation, PenAnnotation, RectAnnotation, TextAnnotation, ToolType } from "./types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,7 +28,12 @@ export interface CaseAnnotationsProps {
   onChange: (ann: Annotation[]) => void;
 }
 
-export function CaseAnnotations({ fieldsForLink, baseImage, onBaseImageChange, annotations, onChange }: CaseAnnotationsProps) {
+export type CaseAnnotationsHandle = { exportPNG: () => Promise<string | undefined> };
+
+export const CaseAnnotations = React.forwardRef<CaseAnnotationsHandle, CaseAnnotationsProps>(function CaseAnnotations(
+  { fieldsForLink, baseImage, onBaseImageChange, annotations, onChange }: CaseAnnotationsProps,
+  ref,
+) {
   const [tool, setTool] = useState<ToolType>("select");
   const [color, setColor] = useState<string>("#e11d48");
   const [size, setSize] = useState<number>(3);
@@ -213,8 +218,8 @@ export function CaseAnnotations({ fieldsForLink, baseImage, onBaseImageChange, a
     setSelectedId(null);
   }
 
-  function exportPNG(): string | undefined {
-    if (!baseImage) return undefined;
+  function exportPNG(): Promise<string | undefined> {
+    if (!baseImage) return Promise.resolve(undefined);
     const img = imgRef.current;
     const cont = containerRef.current;
     if (!img || !cont) return undefined;
@@ -225,7 +230,7 @@ export function CaseAnnotations({ fieldsForLink, baseImage, onBaseImageChange, a
     if (!ctx) return undefined;
     const tempImg = new Image();
     tempImg.src = baseImage;
-    return new Promise<string>((resolve) => {
+    return new Promise<string | undefined>((resolve) => {
       tempImg.onload = () => {
         ctx.drawImage(tempImg, 0, 0, canvas.width, canvas.height);
         // draw annotations
@@ -268,26 +273,10 @@ export function CaseAnnotations({ fieldsForLink, baseImage, onBaseImageChange, a
         });
         resolve(canvas.toDataURL("image/png"));
       };
-    }) as unknown as string; // consumers should await if needed
+    });
   }
 
-  // expose export via custom event on component
-  useEffect(() => {
-    const handler = (e: Event) => {
-      const custom = e as CustomEvent<{ cb: (dataUrl?: string) => void }>;
-      const result = exportPNG();
-      if (result && typeof (result as any).then === "function") {
-        (result as any).then((d: string) => custom.detail.cb(d));
-      } else {
-        custom.detail.cb(result as string | undefined);
-      }
-    };
-    const node = containerRef.current;
-    if (node) node.addEventListener("casesheet:export_png", handler as EventListener);
-    return () => {
-      if (node) node.removeEventListener("casesheet:export_png", handler as EventListener);
-    };
-  }, [annotations, baseImage]);
+  useImperativeHandle(ref, () => ({ exportPNG }), [annotations, baseImage]);
 
   return (
     <div className="space-y-3">
@@ -422,7 +411,7 @@ export function CaseAnnotations({ fieldsForLink, baseImage, onBaseImageChange, a
       )}
     </div>
   );
-}
+});
 
 function ToolButton({ icon, label, active, onClick }: { icon: React.ReactNode; label: string; active?: boolean; onClick?: () => void }) {
   return (
