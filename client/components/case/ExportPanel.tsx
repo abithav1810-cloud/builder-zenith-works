@@ -11,9 +11,10 @@ export interface ExportPanelProps {
   fieldsForLink: { id: string; label: string }[];
   onUpdateImage: (dataUrl?: string) => void;
   onUpdateAnnotations: (a: Annotation[]) => void;
+  onImportCase: (data: CaseSheetData) => void;
 }
 
-export function ExportPanel({ caseData, fieldsForLink, onUpdateImage, onUpdateAnnotations }: ExportPanelProps) {
+export function ExportPanel({ caseData, fieldsForLink, onUpdateImage, onUpdateAnnotations, onImportCase }: ExportPanelProps) {
   const annRef = useRef<CaseAnnotationsHandle>(null);
   const [includeSensitive, setIncludeSensitive] = useState(false);
   const [includeImage, setIncludeImage] = useState(true);
@@ -52,6 +53,12 @@ export function ExportPanel({ caseData, fieldsForLink, onUpdateImage, onUpdateAn
     window.print();
   }
 
+  async function importJSON(file: File) {
+    const text = await file.text();
+    const data = JSON.parse(text) as CaseSheetData;
+    onImportCase(data);
+  }
+
   return (
     <Card>
       <CardHeader>
@@ -82,7 +89,14 @@ export function ExportPanel({ caseData, fieldsForLink, onUpdateImage, onUpdateAn
           </div>
         </div>
 
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-2 items-center">
+          <input id="import_json" type="file" accept="application/json" className="hidden" onChange={(e) => {
+            const f = e.target.files?.[0];
+            if (f) importJSON(f);
+          }} />
+          <Label htmlFor="import_json">
+            <Button variant="outline">Import JSON</Button>
+          </Label>
           <Button onClick={downloadJSON}>Export JSON</Button>
           <Button variant="outline" onClick={downloadPNG}>Export Annotated Image (PNG)</Button>
           <Button variant="ghost" onClick={print}>Print / Save as PDF</Button>
