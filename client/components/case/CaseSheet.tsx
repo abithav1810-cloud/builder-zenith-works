@@ -63,6 +63,7 @@ export default function CaseSheet() {
   }
 
   const fieldOptions = fields.map((f) => ({ id: f.id, label: f.label }));
+  const currentTemplate = templates.find((t) => String(t.id) === String(specialization));
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-sky-50 via-cyan-50 to-teal-50">
@@ -111,6 +112,7 @@ export default function CaseSheet() {
                     values={values}
                     onChangeFields={setFields}
                     onChangeValue={onChangeValue}
+                    suggestions={currentTemplate?.suggestions}
                   />
                 </TabsContent>
                 <TabsContent value="notes" className="space-y-4 mt-4">
@@ -128,6 +130,13 @@ export default function CaseSheet() {
             fieldsForLink={fieldOptions}
             onUpdateImage={setBaseImage}
             onUpdateAnnotations={setAnnotations}
+            onImportCase={(data) => {
+              setSpecialization(data.specialization);
+              setFields(data.fields);
+              setValues(data.values);
+              setAnnotations(data.annotations);
+              setBaseImage(data.baseImage);
+            }}
           />
         </div>
       </main>
