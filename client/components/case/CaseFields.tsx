@@ -18,9 +18,10 @@ export interface CaseFieldsProps {
   values: Record<string, FieldValue>;
   onChangeFields: (fields: FieldDefinition[]) => void;
   onChangeValue: (id: string, value: FieldValue) => void;
+  suggestions?: Record<string, string[]>;
 }
 
-export function CaseFields({ fields, values, onChangeFields, onChangeValue }: CaseFieldsProps) {
+export function CaseFields({ fields, values, onChangeFields, onChangeValue, suggestions }: CaseFieldsProps) {
   const [showConfig, setShowConfig] = useState(false);
 
   function move(id: string, dir: -1 | 1) {
@@ -58,6 +59,7 @@ export function CaseFields({ fields, values, onChangeFields, onChangeValue }: Ca
             onMoveUp={() => move(f.id, -1)}
             onMoveDown={() => move(f.id, 1)}
             onRemove={() => remove(f.id)}
+            suggestions={suggestions?.[f.id]}
           />
         ))}
       </div>
@@ -88,6 +90,7 @@ function FieldRow({
   onMoveUp: () => void;
   onMoveDown: () => void;
   onRemove: () => void;
+  suggestions?: string[];
 }) {
   const required = field.required;
   const label = (
@@ -96,6 +99,10 @@ function FieldRow({
       {required && <Badge variant="secondary">Required</Badge>}
       {field.unit && <Badge variant="outline">{field.unit}</Badge>}
     </div>
+  );
+
+  const invalid = field.required && (
+    value === undefined || value === null || value === "" || (Array.isArray(value) && value.length === 0)
   );
 
   return (
@@ -133,9 +140,23 @@ function FieldRow({
         </div>
       </CardHeader>
       <CardContent className="pt-0">
-        <FieldInput field={field} value={value} onChange={onChange} />
+        <div className={cn(invalid && "ring-2 ring-destructive/40 rounded-md p-1")}>
+          <FieldInput field={field} value={value} onChange={onChange} />
+        </div>
+        {invalid && (
+          <p className="mt-2 text-xs text-destructive">This field is required.</p>
+        )}
         {field.helpText && (
           <p className="mt-2 text-xs text-muted-foreground">{field.helpText}</p>
+        )}
+        {suggestions && suggestions.length > 0 && (
+          <div className="mt-2 flex flex-wrap gap-2">
+            {suggestions.map((s) => (
+              <Button key={s} size="sm" variant="outline" onClick={() => onChange(s)}>
+                {s}
+              </Button>
+            ))}
+          </div>
         )}
       </CardContent>
     </Card>
