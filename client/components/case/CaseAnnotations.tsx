@@ -222,12 +222,12 @@ export const CaseAnnotations = React.forwardRef<CaseAnnotationsHandle, CaseAnnot
     if (!baseImage) return Promise.resolve(undefined);
     const img = imgRef.current;
     const cont = containerRef.current;
-    if (!img || !cont) return undefined;
+    if (!img || !cont) return Promise.resolve(undefined);
     const canvas = document.createElement("canvas");
     canvas.width = img.naturalWidth;
     canvas.height = img.naturalHeight;
     const ctx = canvas.getContext("2d");
-    if (!ctx) return undefined;
+    if (!ctx) return Promise.resolve(undefined);
     const tempImg = new Image();
     tempImg.src = baseImage;
     return new Promise<string | undefined>((resolve) => {
@@ -384,7 +384,7 @@ export const CaseAnnotations = React.forwardRef<CaseAnnotationsHandle, CaseAnnot
                     className="absolute bg-background border rounded px-2 py-1 text-sm"
                     style={{ left: p.x, top: p.y }}
                     value={a.text}
-                    onChange={(e) => updateAnn({ text: e.target.value } as any)}
+                    onChange={(e) => updateAnn({ text: e.target.value })}
                     onBlur={() => setEditingTextId(null)}
                     autoFocus
                   />

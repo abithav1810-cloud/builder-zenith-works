@@ -83,6 +83,7 @@ function FieldRow({
   onMoveUp,
   onMoveDown,
   onRemove,
+  suggestions,
 }: {
   field: FieldDefinition;
   value: FieldValue;
