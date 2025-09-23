@@ -102,6 +102,10 @@ export const CaseAnnotations = React.forwardRef<CaseAnnotationsHandle, CaseAnnot
     setEditingTextId(null);
   }
 
+  function clamp(v: number, min: number, max: number) {
+    return Math.max(min, Math.min(max, v));
+  }
+
   function imageDims() {
     const img = imgRef.current;
     const cont = containerRef.current;
