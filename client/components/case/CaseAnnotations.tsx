@@ -300,49 +300,63 @@ export const CaseAnnotations = React.forwardRef<CaseAnnotationsHandle, CaseAnnot
       } else if (drawing.type === "rect" || drawing.type === "arrow") {
         setDrawing({ ...drawing, currentX: norm.x, currentY: norm.y });
       }
-    } else if (isDragging && selectedId && tool === "select") {
-      // Handle dragging selected annotation
-      const dragDelta = {
-        x: norm.x - (drawing?.startX || norm.x),
-        y: norm.y - (drawing?.startY || norm.y)
-      };
-      
-      const idx = annotations.findIndex(a => a.id === selectedId);
+    } else if (isDragging && selectedId && tool === "select" && dragRef.current) {
+      const dr = dragRef.current;
+      const prevX = dr.prevX;
+      const prevY = dr.prevY;
+      const dx = norm.x - prevX;
+      const dy = norm.y - prevY;
+      const idx = annotations.findIndex(a => a.id === dr.id);
       if (idx >= 0) {
         const a = annotations[idx];
         let updated: Annotation = a;
-        
-        if (a.type === "rect") {
-          updated = { ...a, x: Math.max(0, Math.min(1 - a.width, norm.x - a.width/2)), y: Math.max(0, Math.min(1 - a.height, norm.y - a.height/2)) };
-        } else if (a.type === "arrow") {
-          const dx = norm.x - (a.x1 + a.x2) / 2;
-          const dy = norm.y - (a.y1 + a.y2) / 2;
-          updated = { 
-            ...a, 
-            x1: Math.max(0, Math.min(1, a.x1 + dx)), 
-            y1: Math.max(0, Math.min(1, a.y1 + dy)),
-            x2: Math.max(0, Math.min(1, a.x2 + dx)), 
-            y2: Math.max(0, Math.min(1, a.y2 + dy))
-          };
-        } else if (a.type === "text") {
-          updated = { ...a, x: Math.max(0, Math.min(1, norm.x)), y: Math.max(0, Math.min(1, norm.y)) };
-        } else if (a.type === "pen") {
-          const centerX = a.points.reduce((sum, p) => sum + p.x, 0) / a.points.length;
-          const centerY = a.points.reduce((sum, p) => sum + p.y, 0) / a.points.length;
-          const dx = norm.x - centerX;
-          const dy = norm.y - centerY;
-          updated = { 
-            ...a, 
-            points: a.points.map(p => ({ 
-              x: Math.max(0, Math.min(1, p.x + dx)), 
-              y: Math.max(0, Math.min(1, p.y + dy)) 
-            }))
-          };
+        if (dr.mode === "move") {
+          if (a.type === "rect") {
+            updated = { ...a, x: clamp(a.x + dx, 0, 1 - a.width), y: clamp(a.y + dy, 0, 1 - a.height) };
+          } else if (a.type === "arrow") {
+            updated = {
+              ...a,
+              x1: clamp(a.x1 + dx, 0, 1), y1: clamp(a.y1 + dy, 0, 1),
+              x2: clamp(a.x2 + dx, 0, 1), y2: clamp(a.y2 + dy, 0, 1),
+            };
+          } else if (a.type === "text") {
+            updated = { ...a, x: clamp(a.x + dx, 0, 1), y: clamp(a.y + dy, 0, 1) };
+          } else if (a.type === "pen") {
+            updated = { ...a, points: a.points.map(p => ({ x: clamp(p.x + dx, 0, 1), y: clamp(p.y + dy, 0, 1) })) };
+          }
+        } else if (dr.mode === "resizeRect" && a.type === "rect") {
+          const x = a.x, y = a.y, w = a.width, h = a.height;
+          let nx = x, ny = y, nw = w, nh = h;
+          if (dr.corner === "nw") {
+            nx = clamp(norm.x, 0, x + w);
+            ny = clamp(norm.y, 0, y + h);
+            nw = (x + w) - nx;
+            nh = (y + h) - ny;
+          } else if (dr.corner === "ne") {
+            ny = clamp(norm.y, 0, y + h);
+            nw = clamp(norm.x - x, 0, 1 - x);
+            nh = (y + h) - ny;
+          } else if (dr.corner === "sw") {
+            nx = clamp(norm.x, 0, x + w);
+            nw = (x + w) - nx;
+            nh = clamp(norm.y - y, 0, 1 - y);
+          } else if (dr.corner === "se") {
+            nw = clamp(norm.x - x, 0, 1 - x);
+            nh = clamp(norm.y - y, 0, 1 - y);
+          }
+          updated = { ...a, x: nx, y: ny, width: nw, height: nh };
+        } else if (a.type === "arrow" && (dr.mode === "arrowStart" || dr.mode === "arrowEnd")) {
+          if (dr.mode === "arrowStart") {
+            updated = { ...a, x1: clamp(norm.x, 0, 1), y1: clamp(norm.y, 0, 1) };
+          } else {
+            updated = { ...a, x2: clamp(norm.x, 0, 1), y2: clamp(norm.y, 0, 1) };
+          }
         }
-        
         const next = [...annotations];
         next[idx] = updated;
-        onChange(next); // Use onChange directly for smooth dragging
+        onChange(next);
+        dragRef.current.prevX = norm.x;
+        dragRef.current.prevY = norm.y;
       }
     }
   }
