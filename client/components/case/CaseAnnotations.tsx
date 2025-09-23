@@ -282,15 +282,23 @@ export const CaseAnnotations = React.forwardRef<CaseAnnotationsHandle, CaseAnnot
     <div className="space-y-3">
       <div className="flex flex-wrap items-center gap-2">
         <div className="flex items-center gap-2">
-          <input id="img" type="file" accept="image/*" className="hidden" onChange={async (e) => {
+          <input 
+            id="img" 
+            type="file" 
+            accept="image/*" 
+            className="hidden" 
+            onChange={async (e) => {
             const file = e.target.files?.[0];
             if (!file) return;
             const data = await dataUrlFromFile(file);
             onBaseImageChange(data);
-          }} />
-          <Label htmlFor="img" className="cursor-pointer">
-            <Button variant="outline" size="sm">
+          }} 
+          />
+          <Label htmlFor="img">
+            <Button variant="outline" size="sm" className="cursor-pointer" asChild>
+              <span>
               <ImageIcon className="mr-2 size-4" /> Upload Image
+              </span>
             </Button>
           </Label>
           {baseImage && (
