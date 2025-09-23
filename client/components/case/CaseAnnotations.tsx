@@ -9,7 +9,7 @@ import { Separator } from "@/components/ui/separator";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import { ArrowBigDown, ArrowBigUp, ArrowRight, Eraser, Image as ImageIcon, MousePointer, Pencil, Redo2, RectangleHorizontal, Type, Undo2, X } from "lucide-react";
+import { ArrowBigDown, ArrowBigUp, ArrowRight, Eraser, Image as ImageIcon, MousePointer, Pencil, Redo2, RectangleHorizontal, Type, Undo2, X, Plus, Minus, Copy } from "lucide-react";
 
 export function dataUrlFromFile(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
