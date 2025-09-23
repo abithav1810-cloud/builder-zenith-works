@@ -57,6 +57,14 @@ export const CaseAnnotations = React.forwardRef<CaseAnnotationsHandle, CaseAnnot
   const [undoStack, setUndoStack] = useState<Annotation[][]>([]);
   const [redoStack, setRedoStack] = useState<Annotation[][]>([]);
   const [isDragging, setIsDragging] = useState(false);
+  const [zoom, setZoom] = useState(1);
+  const dragRef = useRef<{
+    mode: "move" | "resizeRect" | "arrowStart" | "arrowEnd";
+    id: string;
+    corner?: "nw" | "ne" | "sw" | "se";
+    prevX: number;
+    prevY: number;
+  } | null>(null);
 
   function pushHistory(next: Annotation[]) {
     setUndoStack((s) => [...s, annotations]);
