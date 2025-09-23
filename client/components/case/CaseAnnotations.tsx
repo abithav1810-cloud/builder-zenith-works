@@ -715,9 +715,9 @@ export const CaseAnnotations = React.forwardRef<CaseAnnotationsHandle, CaseAnnot
       <div
         ref={containerRef}
         className={cn(
-          "relative border-2 border-dashed rounded-lg overflow-hidden bg-muted/20 select-none",
-          !baseImage && "aspect-video grid place-items-center min-h-[400px]",
-          baseImage && "border-solid"
+          "relative border-2 border-dashed rounded-lg bg-muted/20 select-none",
+          !baseImage && "aspect-video grid place-items-center min-h-[400px] overflow-hidden",
+          baseImage && "border-solid overflow-auto"
         )}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
