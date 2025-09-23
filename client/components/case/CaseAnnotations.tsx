@@ -410,6 +410,7 @@ export const CaseAnnotations = React.forwardRef<CaseAnnotationsHandle, CaseAnnot
     
     setDrawing(null);
     setIsDragging(false);
+    dragRef.current = null;
   }
 
   function updateSelectedAnnotation(partial: Partial<Annotation>) {
