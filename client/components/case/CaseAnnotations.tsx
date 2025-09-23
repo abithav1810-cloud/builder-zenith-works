@@ -660,6 +660,16 @@ export const CaseAnnotations = React.forwardRef<CaseAnnotationsHandle, CaseAnnot
         
         <Separator orientation="vertical" className="h-6" />
         
+        {/* Zoom */}
+        <div className="flex items-center gap-2">
+          <Button variant="ghost" size="icon" aria-label="Zoom out" onClick={zoomOut}><Minus className="size-4" /></Button>
+          <span className="text-xs w-12 text-center">{Math.round(zoom * 100)}%</span>
+          <Button variant="ghost" size="icon" aria-label="Zoom in" onClick={zoomIn}><Plus className="size-4" /></Button>
+          <Button variant="outline" size="sm" onClick={zoomReset}>Reset</Button>
+        </div>
+
+        <Separator orientation="vertical" className="h-6" />
+
         {/* Actions */}
         <div className="flex items-center gap-1">
           <Button 
