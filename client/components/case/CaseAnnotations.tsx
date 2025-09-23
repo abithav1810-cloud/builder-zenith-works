@@ -884,15 +884,15 @@ export const CaseAnnotations = React.forwardRef<CaseAnnotationsHandle, CaseAnnot
             </div>
             <div>
               <Label htmlFor="linked-field">Link to field</Label>
-              <Select 
-                value={selectedAnnotation.linkedFieldId || ""} 
-                onValueChange={(v) => updateSelectedAnnotation({ linkedFieldId: v || undefined })}
+              <Select
+                value={selectedAnnotation.linkedFieldId ?? "none"}
+                onValueChange={(v) => updateSelectedAnnotation({ linkedFieldId: v === "none" ? undefined : v })}
               >
                 <SelectTrigger id="linked-field">
                   <SelectValue placeholder="Select field" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">None</SelectItem>
+                  <SelectItem value="none">None</SelectItem>
                   {fieldsForLink.map((f) => (
                     <SelectItem key={f.id} value={f.id}>{f.label}</SelectItem>
                   ))}
