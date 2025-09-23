@@ -522,6 +522,32 @@ export const CaseAnnotations = React.forwardRef<CaseAnnotationsHandle, CaseAnnot
 
   const selectedAnnotation = selectedId ? annotations.find(a => a.id === selectedId) : null;
 
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z") {
+        e.preventDefault();
+        if (e.shiftKey) redo(); else undo();
+      } else if ((e.ctrlKey || e.metaKey) && (e.key.toLowerCase() === "y")) {
+        e.preventDefault();
+        redo();
+      } else if (e.key === "Delete" || e.key === "Backspace") {
+        if (selectedId) {
+          e.preventDefault();
+          removeSelected();
+        }
+      } else if (e.key === "Escape") {
+        setSelectedId(null);
+        setEditingTextId(null);
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [selectedId, undoStack.length, redoStack.length, annotations]);
+
+  function zoomIn() { setZoom((z) => clamp(z + 0.25, 0.5, 3)); }
+  function zoomOut() { setZoom((z) => clamp(z - 0.25, 0.5, 3)); }
+  function zoomReset() { setZoom(1); }
+
   return (
     <div className="space-y-4">
       {/* Toolbar */}
