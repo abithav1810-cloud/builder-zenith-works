@@ -209,10 +209,49 @@ export const CaseAnnotations = React.forwardRef<CaseAnnotationsHandle, CaseAnnot
       const hitId = getAnnotationAt(e.clientX, e.clientY);
       if (hitId) {
         setSelectedId(hitId);
+        const a = annotations.find(x => x.id === hitId)!;
+        const cont = containerRef.current!;
+        const rect = cont.getBoundingClientRect();
+        const localX = e.clientX - rect.left;
+        const localY = e.clientY - rect.top;
+
+        let started = false;
+        if (a.type === "rect") {
+          const p1 = fromNorm(a.x, a.y);
+          const p2 = fromNorm(a.x + a.width, a.y + a.height);
+          const handles = [
+            { corner: "nw" as const, x: p1.x, y: p1.y },
+            { corner: "ne" as const, x: p2.x, y: p1.y },
+            { corner: "sw" as const, x: p1.x, y: p2.y },
+            { corner: "se" as const, x: p2.x, y: p2.y },
+          ];
+          const hit = handles.find(h => Math.hypot(h.x - localX, h.y - localY) < 10);
+          if (hit) {
+            dragRef.current = { mode: "resizeRect", id: hitId, corner: hit.corner, prevX: toNorm(e.clientX, e.clientY).x, prevY: toNorm(e.clientX, e.clientY).y };
+            started = true;
+          }
+        } else if (a.type === "arrow") {
+          const p1 = fromNorm(a.x1, a.y1);
+          const p2 = fromNorm(a.x2, a.y2);
+          const nearP1 = Math.hypot(p1.x - localX, p1.y - localY) < 10;
+          const nearP2 = Math.hypot(p2.x - localX, p2.y - localY) < 10;
+          if (nearP1) {
+            dragRef.current = { mode: "arrowStart", id: hitId, prevX: toNorm(e.clientX, e.clientY).x, prevY: toNorm(e.clientX, e.clientY).y };
+            started = true;
+          } else if (nearP2) {
+            dragRef.current = { mode: "arrowEnd", id: hitId, prevX: toNorm(e.clientX, e.clientY).x, prevY: toNorm(e.clientX, e.clientY).y };
+            started = true;
+          }
+        }
+        if (!started) {
+          dragRef.current = { mode: "move", id: hitId, prevX: toNorm(e.clientX, e.clientY).x, prevY: toNorm(e.clientX, e.clientY).y };
+        }
         setIsDragging(true);
-        if (annotations.find(a => a.id === hitId)?.type === "text") {
+        if (a.type === "text") {
           setEditingTextId(hitId);
         }
+        setUndoStack((s) => [...s, annotations]);
+        setRedoStack([]);
       } else {
         setSelectedId(null);
         setEditingTextId(null);
