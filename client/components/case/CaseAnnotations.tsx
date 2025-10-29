@@ -9,7 +9,7 @@ import { Separator } from "@/components/ui/separator";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import { ArrowBigDown, ArrowBigUp, ArrowRight, Eraser, Image as ImageIcon, MousePointer, Pencil, Redo2, RectangleHorizontal, Type, Undo2, X } from "lucide-react";
+import { ArrowBigDown, ArrowBigUp, ArrowRight, Eraser, Image as ImageIcon, MousePointer, Pencil, Redo2, RectangleHorizontal, Type, Undo2, X, Plus, Minus, Copy } from "lucide-react";
 
 export function dataUrlFromFile(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -57,6 +57,14 @@ export const CaseAnnotations = React.forwardRef<CaseAnnotationsHandle, CaseAnnot
   const [undoStack, setUndoStack] = useState<Annotation[][]>([]);
   const [redoStack, setRedoStack] = useState<Annotation[][]>([]);
   const [isDragging, setIsDragging] = useState(false);
+  const [zoom, setZoom] = useState(1);
+  const dragRef = useRef<{
+    mode: "move" | "resizeRect" | "arrowStart" | "arrowEnd";
+    id: string;
+    corner?: "nw" | "ne" | "sw" | "se";
+    prevX: number;
+    prevY: number;
+  } | null>(null);
 
   function pushHistory(next: Annotation[]) {
     setUndoStack((s) => [...s, annotations]);
@@ -92,6 +100,10 @@ export const CaseAnnotations = React.forwardRef<CaseAnnotationsHandle, CaseAnnot
     pushHistory([]);
     setSelectedId(null);
     setEditingTextId(null);
+  }
+
+  function clamp(v: number, min: number, max: number) {
+    return Math.max(min, Math.min(max, v));
   }
 
   function imageDims() {
@@ -197,10 +209,49 @@ export const CaseAnnotations = React.forwardRef<CaseAnnotationsHandle, CaseAnnot
       const hitId = getAnnotationAt(e.clientX, e.clientY);
       if (hitId) {
         setSelectedId(hitId);
+        const a = annotations.find(x => x.id === hitId)!;
+        const cont = containerRef.current!;
+        const rect = cont.getBoundingClientRect();
+        const localX = e.clientX - rect.left;
+        const localY = e.clientY - rect.top;
+
+        let started = false;
+        if (a.type === "rect") {
+          const p1 = fromNorm(a.x, a.y);
+          const p2 = fromNorm(a.x + a.width, a.y + a.height);
+          const handles = [
+            { corner: "nw" as const, x: p1.x, y: p1.y },
+            { corner: "ne" as const, x: p2.x, y: p1.y },
+            { corner: "sw" as const, x: p1.x, y: p2.y },
+            { corner: "se" as const, x: p2.x, y: p2.y },
+          ];
+          const hit = handles.find(h => Math.hypot(h.x - localX, h.y - localY) < 10);
+          if (hit) {
+            dragRef.current = { mode: "resizeRect", id: hitId, corner: hit.corner, prevX: toNorm(e.clientX, e.clientY).x, prevY: toNorm(e.clientX, e.clientY).y };
+            started = true;
+          }
+        } else if (a.type === "arrow") {
+          const p1 = fromNorm(a.x1, a.y1);
+          const p2 = fromNorm(a.x2, a.y2);
+          const nearP1 = Math.hypot(p1.x - localX, p1.y - localY) < 10;
+          const nearP2 = Math.hypot(p2.x - localX, p2.y - localY) < 10;
+          if (nearP1) {
+            dragRef.current = { mode: "arrowStart", id: hitId, prevX: toNorm(e.clientX, e.clientY).x, prevY: toNorm(e.clientX, e.clientY).y };
+            started = true;
+          } else if (nearP2) {
+            dragRef.current = { mode: "arrowEnd", id: hitId, prevX: toNorm(e.clientX, e.clientY).x, prevY: toNorm(e.clientX, e.clientY).y };
+            started = true;
+          }
+        }
+        if (!started) {
+          dragRef.current = { mode: "move", id: hitId, prevX: toNorm(e.clientX, e.clientY).x, prevY: toNorm(e.clientX, e.clientY).y };
+        }
         setIsDragging(true);
-        if (annotations.find(a => a.id === hitId)?.type === "text") {
+        if (a.type === "text") {
           setEditingTextId(hitId);
         }
+        setUndoStack((s) => [...s, annotations]);
+        setRedoStack([]);
       } else {
         setSelectedId(null);
         setEditingTextId(null);
@@ -249,49 +300,63 @@ export const CaseAnnotations = React.forwardRef<CaseAnnotationsHandle, CaseAnnot
       } else if (drawing.type === "rect" || drawing.type === "arrow") {
         setDrawing({ ...drawing, currentX: norm.x, currentY: norm.y });
       }
-    } else if (isDragging && selectedId && tool === "select") {
-      // Handle dragging selected annotation
-      const dragDelta = {
-        x: norm.x - (drawing?.startX || norm.x),
-        y: norm.y - (drawing?.startY || norm.y)
-      };
-      
-      const idx = annotations.findIndex(a => a.id === selectedId);
+    } else if (isDragging && selectedId && tool === "select" && dragRef.current) {
+      const dr = dragRef.current;
+      const prevX = dr.prevX;
+      const prevY = dr.prevY;
+      const dx = norm.x - prevX;
+      const dy = norm.y - prevY;
+      const idx = annotations.findIndex(a => a.id === dr.id);
       if (idx >= 0) {
         const a = annotations[idx];
         let updated: Annotation = a;
-        
-        if (a.type === "rect") {
-          updated = { ...a, x: Math.max(0, Math.min(1 - a.width, norm.x - a.width/2)), y: Math.max(0, Math.min(1 - a.height, norm.y - a.height/2)) };
-        } else if (a.type === "arrow") {
-          const dx = norm.x - (a.x1 + a.x2) / 2;
-          const dy = norm.y - (a.y1 + a.y2) / 2;
-          updated = { 
-            ...a, 
-            x1: Math.max(0, Math.min(1, a.x1 + dx)), 
-            y1: Math.max(0, Math.min(1, a.y1 + dy)),
-            x2: Math.max(0, Math.min(1, a.x2 + dx)), 
-            y2: Math.max(0, Math.min(1, a.y2 + dy))
-          };
-        } else if (a.type === "text") {
-          updated = { ...a, x: Math.max(0, Math.min(1, norm.x)), y: Math.max(0, Math.min(1, norm.y)) };
-        } else if (a.type === "pen") {
-          const centerX = a.points.reduce((sum, p) => sum + p.x, 0) / a.points.length;
-          const centerY = a.points.reduce((sum, p) => sum + p.y, 0) / a.points.length;
-          const dx = norm.x - centerX;
-          const dy = norm.y - centerY;
-          updated = { 
-            ...a, 
-            points: a.points.map(p => ({ 
-              x: Math.max(0, Math.min(1, p.x + dx)), 
-              y: Math.max(0, Math.min(1, p.y + dy)) 
-            }))
-          };
+        if (dr.mode === "move") {
+          if (a.type === "rect") {
+            updated = { ...a, x: clamp(a.x + dx, 0, 1 - a.width), y: clamp(a.y + dy, 0, 1 - a.height) };
+          } else if (a.type === "arrow") {
+            updated = {
+              ...a,
+              x1: clamp(a.x1 + dx, 0, 1), y1: clamp(a.y1 + dy, 0, 1),
+              x2: clamp(a.x2 + dx, 0, 1), y2: clamp(a.y2 + dy, 0, 1),
+            };
+          } else if (a.type === "text") {
+            updated = { ...a, x: clamp(a.x + dx, 0, 1), y: clamp(a.y + dy, 0, 1) };
+          } else if (a.type === "pen") {
+            updated = { ...a, points: a.points.map(p => ({ x: clamp(p.x + dx, 0, 1), y: clamp(p.y + dy, 0, 1) })) };
+          }
+        } else if (dr.mode === "resizeRect" && a.type === "rect") {
+          const x = a.x, y = a.y, w = a.width, h = a.height;
+          let nx = x, ny = y, nw = w, nh = h;
+          if (dr.corner === "nw") {
+            nx = clamp(norm.x, 0, x + w);
+            ny = clamp(norm.y, 0, y + h);
+            nw = (x + w) - nx;
+            nh = (y + h) - ny;
+          } else if (dr.corner === "ne") {
+            ny = clamp(norm.y, 0, y + h);
+            nw = clamp(norm.x - x, 0, 1 - x);
+            nh = (y + h) - ny;
+          } else if (dr.corner === "sw") {
+            nx = clamp(norm.x, 0, x + w);
+            nw = (x + w) - nx;
+            nh = clamp(norm.y - y, 0, 1 - y);
+          } else if (dr.corner === "se") {
+            nw = clamp(norm.x - x, 0, 1 - x);
+            nh = clamp(norm.y - y, 0, 1 - y);
+          }
+          updated = { ...a, x: nx, y: ny, width: nw, height: nh };
+        } else if (a.type === "arrow" && (dr.mode === "arrowStart" || dr.mode === "arrowEnd")) {
+          if (dr.mode === "arrowStart") {
+            updated = { ...a, x1: clamp(norm.x, 0, 1), y1: clamp(norm.y, 0, 1) };
+          } else {
+            updated = { ...a, x2: clamp(norm.x, 0, 1), y2: clamp(norm.y, 0, 1) };
+          }
         }
-        
         const next = [...annotations];
         next[idx] = updated;
-        onChange(next); // Use onChange directly for smooth dragging
+        onChange(next);
+        dragRef.current.prevX = norm.x;
+        dragRef.current.prevY = norm.y;
       }
     }
   }
@@ -345,6 +410,7 @@ export const CaseAnnotations = React.forwardRef<CaseAnnotationsHandle, CaseAnnot
     
     setDrawing(null);
     setIsDragging(false);
+    dragRef.current = null;
   }
 
   function updateSelectedAnnotation(partial: Partial<Annotation>) {
@@ -455,6 +521,32 @@ export const CaseAnnotations = React.forwardRef<CaseAnnotationsHandle, CaseAnnot
   useImperativeHandle(ref, () => ({ exportPNG }), [annotations, baseImage]);
 
   const selectedAnnotation = selectedId ? annotations.find(a => a.id === selectedId) : null;
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z") {
+        e.preventDefault();
+        if (e.shiftKey) redo(); else undo();
+      } else if ((e.ctrlKey || e.metaKey) && (e.key.toLowerCase() === "y")) {
+        e.preventDefault();
+        redo();
+      } else if (e.key === "Delete" || e.key === "Backspace") {
+        if (selectedId) {
+          e.preventDefault();
+          removeSelected();
+        }
+      } else if (e.key === "Escape") {
+        setSelectedId(null);
+        setEditingTextId(null);
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [selectedId, undoStack.length, redoStack.length, annotations]);
+
+  function zoomIn() { setZoom((z) => clamp(z + 0.25, 0.5, 3)); }
+  function zoomOut() { setZoom((z) => clamp(z - 0.25, 0.5, 3)); }
+  function zoomReset() { setZoom(1); }
 
   return (
     <div className="space-y-4">
@@ -568,6 +660,16 @@ export const CaseAnnotations = React.forwardRef<CaseAnnotationsHandle, CaseAnnot
         
         <Separator orientation="vertical" className="h-6" />
         
+        {/* Zoom */}
+        <div className="flex items-center gap-2">
+          <Button variant="ghost" size="icon" aria-label="Zoom out" onClick={zoomOut}><Minus className="size-4" /></Button>
+          <span className="text-xs w-12 text-center">{Math.round(zoom * 100)}%</span>
+          <Button variant="ghost" size="icon" aria-label="Zoom in" onClick={zoomIn}><Plus className="size-4" /></Button>
+          <Button variant="outline" size="sm" onClick={zoomReset}>Reset</Button>
+        </div>
+
+        <Separator orientation="vertical" className="h-6" />
+
         {/* Actions */}
         <div className="flex items-center gap-1">
           <Button 
@@ -613,9 +715,9 @@ export const CaseAnnotations = React.forwardRef<CaseAnnotationsHandle, CaseAnnot
       <div
         ref={containerRef}
         className={cn(
-          "relative border-2 border-dashed rounded-lg overflow-hidden bg-muted/20 select-none",
-          !baseImage && "aspect-video grid place-items-center min-h-[400px]",
-          baseImage && "border-solid"
+          "relative border-2 border-dashed rounded-lg bg-muted/20 select-none",
+          !baseImage && "aspect-video grid place-items-center min-h-[400px] overflow-hidden",
+          baseImage && "border-solid overflow-auto"
         )}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
@@ -884,15 +986,15 @@ export const CaseAnnotations = React.forwardRef<CaseAnnotationsHandle, CaseAnnot
             </div>
             <div>
               <Label htmlFor="linked-field">Link to field</Label>
-              <Select 
-                value={selectedAnnotation.linkedFieldId || ""} 
-                onValueChange={(v) => updateSelectedAnnotation({ linkedFieldId: v || undefined })}
+              <Select
+                value={selectedAnnotation.linkedFieldId ?? "none"}
+                onValueChange={(v) => updateSelectedAnnotation({ linkedFieldId: v === "none" ? undefined : v })}
               >
                 <SelectTrigger id="linked-field">
                   <SelectValue placeholder="Select field" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">None</SelectItem>
+                  <SelectItem value="none">None</SelectItem>
                   {fieldsForLink.map((f) => (
                     <SelectItem key={f.id} value={f.id}>{f.label}</SelectItem>
                   ))}
